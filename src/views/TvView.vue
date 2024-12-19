@@ -8,7 +8,11 @@ const tv = ref([]);
 const christmasKeywordId = ref(null); // ID da palavra-chave "Christmas"
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
+function getGenreName(id) {
+    const genero = genres.value.find((genre) => genre.id === id);
+    return genero.name;
+}
+const formatDate = (date) => new Date(date).toLocaleDateString('pt-BR');
 
 // Função para listar programas de TV com base no gênero e palavra-chave "Christmas"
 const listTV = async (genreId) => {
@@ -75,14 +79,45 @@ onMounted(async () => {
             />
             <div class="tv-details">
                 <p class="tv-title">{{ item.original_name }}</p>
-                <p class="tv-release-date">{{ item.first_air_date }}</p>
-                <p class="tv-genres">{{ item.genre_ids }}</p>
+                <p class="movie-release-date">{{ formatDate(item.first_air_date) }}</p>
+                <p class="movie-genres">
+                    <span
+                      v-for="genre_id in item.genre_ids"
+                      :key="genre_id"
+                      @click="listTV(genre_id)"
+                    >
+                      {{ getGenreName(genre_id) }} 
+                    </span>
+                  </p>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
+.movie-genres {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.2rem;
+  }
+  
+  .movie-genres span {
+    background-color: #748708;
+    border-radius: 0.5rem;
+    padding: 0.2rem 0.5rem;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: bold;
+  }
+  
+  .movie-genres span:hover {
+    cursor: pointer;
+    background-color: #455a08;
+    box-shadow: 0 0 0.5rem #748708;
+  }
 .gif-loading{
     width: 400px;
 }
