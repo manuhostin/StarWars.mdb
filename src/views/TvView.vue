@@ -2,12 +2,18 @@
 import { ref, onMounted } from 'vue';
 import api from '@/plugins/axios';
 
+const isLoading = ref(false);
 const genres = ref([]);
 const tv = ref([]);
 const christmasKeywordId = ref(null); // ID da palavra-chave "Christmas"
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+
 // Função para listar programas de TV com base no gênero e palavra-chave "Christmas"
 const listTV = async (genreId) => {
+    isLoading.value = true;
+    const start = Date.now();
     const response = await api.get('discover/tv', {
         params: {
             with_genres: genreId,
@@ -16,6 +22,14 @@ const listTV = async (genreId) => {
         }
     });
     tv.value = response.data.results;
+    // Calcula o tempo restante para completar os 3 segundos
+  const elapsed = Date.now() - start;
+  const remaining = 2000 - elapsed;
+  if (remaining > 0) {
+    await delay(remaining);
+  }
+
+  isLoading.value = false;
 };
 
 // Função para buscar a palavra-chave "Christmas"
@@ -44,6 +58,9 @@ onMounted(async () => {
 </script>
 
 <template>
+    <div v-if="isLoading" class="loading"  >
+        <img class="gif-loading" is-full-page src="@/assets/natal.gif" />
+        </div>
     <h1>Programas de TV de Natal</h1>
     <ul class="genre-list">
         <li v-for="genre in genres" :key="genre.id" @click="listTV(genre.id)" class="genre-item">
@@ -66,6 +83,18 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.gif-loading{
+    width: 400px;
+}
+.loading{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    background-color: #fffffffa;
+}
 .genre-list {
     display: flex;
     justify-content: center;
