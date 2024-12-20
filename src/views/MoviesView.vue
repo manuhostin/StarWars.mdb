@@ -3,101 +3,112 @@ import { ref, onMounted } from 'vue';
 import api from '@/plugins/axios';
 
 const isLoading = ref(false);
-
 const genres = ref([]);
 const movies = ref([]);
-const christmasKeywordId = ref(null); // ID da palavra-chave "Christmas"
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function getGenreName(id) {
-    const genero = genres.value.find((genre) => genre.id === id);
-    return genero.name;
-}
 const formatDate = (date) => new Date(date).toLocaleDateString('pt-BR');
-const listMovies = async (genreId) => {
-  isLoading.value = true;
 
-  // Inicia a busca dos filmes
-  const start = Date.now();
-  const response = await api.get('discover/movie', {
-    params: {
-      with_genres: genreId,
-      with_keywords: christmasKeywordId.value, // Filtra pela palavra-chave "Christmas"
-      language: 'pt-BR'
-    }
-  });
+// Função para listar filmes com "Star Wars" no título
+const listStarWarsMovies = async (genreId = null) => {
+    isLoading.value = true;
+    const start = Date.now();
 
-  movies.value = response.data.results;
-
-  // Calcula o tempo restante para completar os 3 segundos
-  const elapsed = Date.now() - start;
-  const remaining = 2000 - elapsed;
-  if (remaining > 0) {
-    await delay(remaining);
-  }
-
-  isLoading.value = false;
-};
-
-// Função para buscar a palavra-chave de Natal (Christmas)
-const fetchChristmasKeyword = async () => {
-    const response = await api.get('search/keyword', {
+    const response = await api.get('search/movie', {
         params: {
-            query: 'Christmas',
+            query: 'Star Wars', // Busca por filmes com "Star Wars" no título
             language: 'pt-BR'
         }
     });
 
-    // Se encontrar a palavra-chave "Christmas", armazena o ID
-    if (response.data.results.length > 0) {
-        christmasKeywordId.value = response.data.results[0].id;
+    // Filtra os filmes pelo gênero selecionado, se houver
+    if (genreId) {
+        movies.value = response.data.results.filter(movie => movie.genre_ids.includes(genreId));
+    } else {
+        movies.value = response.data.results;
     }
+
+    // Calcula o tempo restante para completar os 2 segundos
+    const elapsed = Date.now() - start;
+    const remaining = 2000 - elapsed;
+    if (remaining > 0) {
+        await delay(remaining);
+    }
+
+    isLoading.value = false;
+};
+
+// Função para buscar gêneros que aparecem nos filmes de Star Wars
+const fetchStarWarsGenres = async () => {
+    const response = await api.get('search/movie', {
+        params: {
+            query: 'Star Wars', // Busca por filmes com "Star Wars" no título
+            language: 'pt-BR'
+        }
+    });
+
+    const allGenresResponse = await api.get('genre/movie/list?language=pt-BR');
+    const allGenres = allGenresResponse.data.genres;
+
+    // Obtém os gêneros exclusivos dos filmes de Star Wars
+    const genreIds = new Set(response.data.results.flatMap(movie => movie.genre_ids));
+    genres.value = allGenres.filter(genre => genreIds.has(genre.id));
 };
 
 onMounted(async () => {
-    // Busca pelos gêneros de filmes
-    const genreResponse = await api.get('genre/movie/list?language=pt-BR');
-    genres.value = genreResponse.data.genres;
+    // Busca os gêneros relacionados aos filmes de Star Wars
+    await fetchStarWarsGenres();
 
-    // Busca o ID da palavra-chave "Christmas"
-    await fetchChristmasKeyword();
+    // Lista os filmes de Star Wars por padrão
+    await listStarWarsMovies();
 });
 </script>
 
-
 <template>
-    <div v-if="isLoading" class="loading"  >
-    <img class="gif-loading" is-full-page src="@/assets/natal.gif" />
+    <div v-if="isLoading" class="loading">
     </div>
-    <h1>Filmes de Natal</h1>
+    <h1>Filmes do Universo <span>Star Wars</span></h1>
     <ul class="genre-list">
-        <li v-for="genre in genres" :key="genre.id" @click="listMovies(genre.id)" class="genre-item">
+        <li
+            v-for="genre in genres"
+            :key="genre.id"
+            class="genre-item"
+            @click="listStarWarsMovies(genre.id)"
+        >
             {{ genre.name }}
         </li>
     </ul>
     <div class="movie-list">
-        <div v-for="movie in movies" :key="movie.id" class="movie-card">
-            <img :src="`https://image.tmdb.org/t/p/w500${movie.poster_path}`" :alt="movie.title" />
+        <div v-for="item in movies" :key="item.id" class="movie-card">
+            <img
+                :src="`https://image.tmdb.org/t/p/w500${item.poster_path}`"
+                :alt="item.title"
+            />
             <div class="movie-details">
-                <p class="movie-title">{{ movie.title }}</p>
-                <p class="movie-release-date">{{ formatDate(movie.release_date) }}</p>
-                <p class="movie-genres">
-                    <span
-                      v-for="genre_id in movie.genre_ids"
-                      :key="genre_id"
-                      @click="listMovies(genre_id)"
-                    >
-                      {{ getGenreName(genre_id) }} 
-                    </span>
-                  </p>
+                <p class="movie-title">{{ item.title }}</p>
+                <p class="movie-release-date">{{ formatDate(item.release_date) }}</p>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
+span {
+  color: #f5c518;
+}
+* {
+  font-family: 'Star Jedi', sans-serif;
+}
+body {
+    background-color: #000;
+    color: #fff;
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
 .movie-genres {
+  background-color: #000;
+
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
@@ -105,33 +116,7 @@ onMounted(async () => {
     justify-content: center;
     gap: 0.2rem;
   }
-  
-  .movie-genres span {
-    background-color: #748708;
-    border-radius: 0.5rem;
-    padding: 0.2rem 0.5rem;
-    color: #fff;
-    font-size: 0.8rem;
-    font-weight: bold;
-  }
-  
-  .movie-genres span:hover {
-    cursor: pointer;
-    background-color: #455a08;
-    box-shadow: 0 0 0.5rem #748708;
-  }
-.gif-loading{
-    width: 400px;
-}
-.loading{
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100vw;
-    height: 100vh;
-    position: fixed;
-    background-color: #fffffffa;
-}
+
 .genre-list {
     display: flex;
     justify-content: center;
@@ -140,18 +125,25 @@ onMounted(async () => {
     list-style: none;
     padding: 0;
 }
+h1 {
 
+  text-align: center !important;
+}
 .genre-item {
-    background-color: #387250;
+    background-color: #000;
     border-radius: 1rem;
     padding: 0.5rem 1rem;
-    color: #fff;
+    align-self: center;
+    color: #f5c518;
+    display: flex;
+    justify-content: center;
 }
 
 .genre-item:hover {
     cursor: pointer;
-    background-color: #4e9e5f;
-    box-shadow: 0 0 0.5rem #387250;
+    background-color: #f5c518;
+    color: #000;
+    box-shadow: 0 0 0.5rem #f5c518;
 }
 
 .movie-list {

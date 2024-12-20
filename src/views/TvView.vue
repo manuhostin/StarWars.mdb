@@ -4,132 +4,118 @@ import api from '@/plugins/axios';
 
 const isLoading = ref(false);
 const genres = ref([]);
-const tv = ref([]);
-const christmasKeywordId = ref(null); // ID da palavra-chave "Christmas"
+const series = ref([]);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-function getGenreName(id) {
-    const genero = genres.value.find((genre) => genre.id === id);
-    return genero.name;
-}
 const formatDate = (date) => new Date(date).toLocaleDateString('pt-BR');
 
-// Função para listar programas de TV com base no gênero e palavra-chave "Christmas"
-const listTV = async (genreId) => {
+// Função para listar séries com "Star Wars" no título
+const listStarWarsSeries = async (genreId = null) => {
     isLoading.value = true;
     const start = Date.now();
-    const response = await api.get('discover/tv', {
+
+    const response = await api.get('search/tv', {
         params: {
-            with_genres: genreId,
-            with_keywords: christmasKeywordId.value, // Filtra pela palavra-chave "Christmas"
+            query: 'Star Wars', // Busca por séries com "Star Wars" no título
             language: 'pt-BR'
         }
     });
-    tv.value = response.data.results;
-    // Calcula o tempo restante para completar os 3 segundos
-  const elapsed = Date.now() - start;
-  const remaining = 2000 - elapsed;
-  if (remaining > 0) {
-    await delay(remaining);
-  }
 
-  isLoading.value = false;
+    // Filtra as séries pelo gênero selecionado, se houver
+    if (genreId) {
+        series.value = response.data.results.filter(serie => serie.genre_ids.includes(genreId));
+    } else {
+        series.value = response.data.results;
+    }
+
+    // Calcula o tempo restante para completar os 2 segundos
+    const elapsed = Date.now() - start;
+    const remaining = 2000 - elapsed;
+    if (remaining > 0) {
+        await delay(remaining);
+    }
+
+    isLoading.value = false;
 };
 
-// Função para buscar a palavra-chave "Christmas"
-const fetchChristmasKeyword = async () => {
-    const response = await api.get('search/keyword', {
+// Função para buscar gêneros que aparecem nas séries de Star Wars
+const fetchStarWarsGenres = async () => {
+    const response = await api.get('search/tv', {
         params: {
-            query: 'Christmas',
+            query: 'Star Wars', // Busca por séries com "Star Wars" no título
             language: 'pt-BR'
         }
     });
 
-    // Se encontrar a palavra-chave "Christmas", armazena o ID
-    if (response.data.results.length > 0) {
-        christmasKeywordId.value = response.data.results[0].id;
-    }
+    const allGenresResponse = await api.get('genre/tv/list?language=pt-BR');
+    const allGenres = allGenresResponse.data.genres;
+
+    // Obtém os gêneros exclusivos das séries de Star Wars
+    const genreIds = new Set(response.data.results.flatMap(serie => serie.genre_ids));
+    genres.value = allGenres.filter(genre => genreIds.has(genre.id));
 };
 
 onMounted(async () => {
-    // Busca pelos gêneros de programas de TV
-    const genreResponse = await api.get('genre/tv/list?language=pt-BR');
-    genres.value = genreResponse.data.genres;
+    // Busca os gêneros relacionados às séries de Star Wars
+    await fetchStarWarsGenres();
 
-    // Busca o ID da palavra-chave "Christmas"
-    await fetchChristmasKeyword();
+    // Lista as séries de Star Wars por padrão
+    await listStarWarsSeries();
 });
 </script>
 
 <template>
-    <div v-if="isLoading" class="loading"  >
-        <img class="gif-loading" is-full-page src="@/assets/natal.gif" />
-        </div>
-    <h1>Programas de TV de Natal</h1>
+    <div v-if="isLoading" class="loading">
+    </div>
+    <h1>Séries do Universo <span>Star Wars</span></h1>
     <ul class="genre-list">
-        <li v-for="genre in genres" :key="genre.id" @click="listTV(genre.id)" class="genre-item">
+        <li
+            v-for="genre in genres"
+            :key="genre.id"
+            class="genre-item"
+            @click="listStarWarsSeries(genre.id)"
+        >
             {{ genre.name }}
         </li>
     </ul>
-    <div class="tv-list">
-        <div v-for="item in tv" :key="item.id" class="tv-card">
+    <div class="series-list">
+        <div v-for="item in series" :key="item.id" class="series-card">
             <img
                 :src="`https://image.tmdb.org/t/p/w500${item.poster_path}`"
-                :alt="item.original_name"
+                :alt="item.name"
             />
-            <div class="tv-details">
-                <p class="tv-title">{{ item.original_name }}</p>
-                <p class="movie-release-date">{{ formatDate(item.first_air_date) }}</p>
-                <p class="movie-genres">
-                    <span
-                      v-for="genre_id in item.genre_ids"
-                      :key="genre_id"
-                      @click="listTV(genre_id)"
-                    >
-                      {{ getGenreName(genre_id) }} 
-                    </span>
-                  </p>
+            <div class="series-details">
+                <p class="series-title">{{ item.name }}</p>
+                <p class="series-release-date">{{ formatDate(item.first_air_date) }}</p>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-.movie-genres {
+span {
+  color: #f5c518;
+}
+* {
+  font-family: 'Star Jedi', sans-serif;
+}
+body {
+    background-color: #000;
+    color: #fff;
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+.series-genres {
+    background-color: #000;
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
     align-items: flex-start;
     justify-content: center;
     gap: 0.2rem;
-  }
-  
-  .movie-genres span {
-    background-color: #748708;
-    border-radius: 0.5rem;
-    padding: 0.2rem 0.5rem;
-    color: #fff;
-    font-size: 0.8rem;
-    font-weight: bold;
-  }
-  
-  .movie-genres span:hover {
-    cursor: pointer;
-    background-color: #455a08;
-    box-shadow: 0 0 0.5rem #748708;
-  }
-.gif-loading{
-    width: 400px;
 }
-.loading{
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100vw;
-    height: 100vh;
-    position: fixed;
-    background-color: #fffffffa;
-}
+
 .genre-list {
     display: flex;
     justify-content: center;
@@ -138,30 +124,33 @@ onMounted(async () => {
     list-style: none;
     padding: 0;
 }
-
+h1 {
+    text-align: center !important;
+}
 .genre-item {
-    background-color: #5d6424;
+    background-color: #000;
     border-radius: 1rem;
     padding: 0.5rem 1rem;
     align-self: center;
-    color: #fff;
+    color: #f5c518;
     display: flex;
     justify-content: center;
 }
 
 .genre-item:hover {
     cursor: pointer;
-    background-color: #7d8a2e;
-    box-shadow: 0 0 0.5rem #5d6424;
+    background-color: #f5c518;
+    color: #000;
+    box-shadow: 0 0 0.5rem #f5c518;
 }
 
-.tv-list {
+.series-list {
     display: flex;
     flex-wrap: wrap;
     gap: 1rem;
 }
 
-.tv-card {
+.series-card {
     width: 15rem;
     height: 30rem;
     border-radius: 0.5rem;
@@ -169,18 +158,18 @@ onMounted(async () => {
     box-shadow: 0 0 0.5rem #000;
 }
 
-.tv-card img {
+.series-card img {
     width: 100%;
     height: 20rem;
     border-radius: 0.5rem;
     box-shadow: 0 0 0.5rem #000;
 }
 
-.tv-details {
+.series-details {
     padding: 0 0.5rem;
 }
 
-.tv-title {
+.series-title {
     font-size: 1.1rem;
     font-weight: bold;
     line-height: 1.3rem;
